@@ -1,160 +1,73 @@
-import {
-  Coffee,
-  Package,
-  Users,
-  Truck,
-  Warehouse,
-  LogOut,
-  ShoppingBag,
-  AlertTriangle,
-} from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Package, Users, Truck, Boxes, AlertTriangle } from 'lucide-react'
+import AdminLayout from '../components/layout/AdminLayout'
 
 function DashboardPage() {
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('usuario')
-    navigate('/login')
-  }
-
-  const usuario = localStorage.getItem('usuario') || 'Administrador'
-
   return (
-    <div className="min-h-screen bg-stone-100 flex">
-      <aside className="w-72 bg-amber-900 text-white hidden md:flex flex-col">
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/15 p-3 rounded-2xl">
-              <Coffee size={30} />
+    <AdminLayout
+      title="Dashboard"
+      subtitle="Bienvenido, aquí tienes el resumen de la cafetería."
+    >
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <StatCard
+          title="Productos"
+          value="24"
+          description="Registrados"
+          icon={<Package size={28} />}
+        />
+        <StatCard
+          title="Inventario"
+          value="156"
+          description="Unidades disponibles"
+          icon={<Boxes size={28} />}
+        />
+        <StatCard
+          title="Proveedores"
+          value="8"
+          description="Activos"
+          icon={<Truck size={28} />}
+        />
+        <StatCard
+          title="Clientes"
+          value="42"
+          description="Registrados"
+          icon={<Users size={28} />}
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6">
+          <h3 className="text-xl font-bold text-stone-800 mb-4">
+            Productos destacados
+          </h3>
+
+          <div className="space-y-4">
+            <ProductRow name="Café americano" stock="35 unidades" price="$28.00" />
+            <ProductRow name="Capuchino" stock="22 unidades" price="$38.00" />
+            <ProductRow name="Croissant" stock="15 unidades" price="$32.00" />
+            <ProductRow name="Sandwich universitario" stock="18 unidades" price="$45.00" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-red-100 text-red-700 p-3 rounded-xl">
+              <AlertTriangle size={24} />
             </div>
             <div>
-              <h1 className="text-xl font-bold">Café Campus</h1>
-              <p className="text-sm text-amber-100">Admin ERP</p>
+              <h3 className="text-xl font-bold text-stone-800">Alertas</h3>
+              <p className="text-sm text-stone-500">Stock bajo</p>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <AlertItem text="Leche deslactosada baja en inventario" />
+            <AlertItem text="Vasos medianos por agotarse" />
+            <AlertItem text="Pan dulce requiere reposición" />
+            <AlertItem text="Servilletas con existencia mínima" />
           </div>
         </div>
-
-        <nav className="flex-1 p-4 space-y-2">
-          <MenuItem icon={<Warehouse size={20} />} text="Dashboard" active />
-          <MenuItem icon={<ShoppingBag size={20} />} text="Productos" />
-          <MenuItem icon={<Package size={20} />} text="Inventario" />
-          <MenuItem icon={<Truck size={20} />} text="Proveedores" />
-          <MenuItem icon={<Users size={20} />} text="Clientes" />
-        </nav>
-
-        <div className="p-4 border-t border-white/10">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 transition"
-          >
-            <LogOut size={20} />
-            Cerrar sesión
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1">
-        <header className="bg-white shadow-sm px-6 py-5 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-stone-800">
-              Dashboard
-            </h2>
-            <p className="text-stone-500">
-              Bienvenido, {usuario}. Aquí tienes el resumen de la cafetería.
-            </p>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="md:hidden bg-amber-800 text-white px-4 py-2 rounded-xl"
-          >
-            Salir
-          </button>
-        </header>
-
-        <section className="p-6">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-            <StatCard
-              title="Productos"
-              value="24"
-              description="Registrados"
-              icon={<ShoppingBag size={28} />}
-            />
-            <StatCard
-              title="Inventario"
-              value="156"
-              description="Unidades disponibles"
-              icon={<Package size={28} />}
-            />
-            <StatCard
-              title="Proveedores"
-              value="8"
-              description="Activos"
-              icon={<Truck size={28} />}
-            />
-            <StatCard
-              title="Clientes"
-              value="42"
-              description="Registrados"
-              icon={<Users size={28} />}
-            />
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="text-xl font-bold text-stone-800 mb-4">
-                Productos destacados
-              </h3>
-
-              <div className="space-y-4">
-                <ProductRow name="Café americano" stock="35 unidades" price="$28.00" />
-                <ProductRow name="Capuchino" stock="22 unidades" price="$38.00" />
-                <ProductRow name="Croissant" stock="15 unidades" price="$32.00" />
-                <ProductRow name="Sandwich universitario" stock="18 unidades" price="$45.00" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-red-100 text-red-700 p-3 rounded-xl">
-                  <AlertTriangle size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-stone-800">
-                    Alertas
-                  </h3>
-                  <p className="text-sm text-stone-500">
-                    Stock bajo
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <AlertItem text="Leche deslactosada baja en inventario" />
-                <AlertItem text="Vasos medianos por agotarse" />
-                <AlertItem text="Pan dulce requiere reposición" />
-                <AlertItem text="Servilletas con existencia mínima" />
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  )
-}
-
-function MenuItem({ icon, text, active }) {
-  return (
-    <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition ${
-        active ? 'bg-white text-amber-900 font-bold' : 'hover:bg-white/10'
-      }`}
-    >
-      {icon}
-      <span>{text}</span>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }
 
