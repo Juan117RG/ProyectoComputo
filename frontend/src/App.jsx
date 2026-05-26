@@ -1,28 +1,41 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import ProductsPage from './pages/ProductsPage'
-import InventoryPage from './pages/InventoryPage'
-import SuppliersPage from './pages/SuppliersPage'
-import ClientsPage from './pages/ClientsPage'
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import ProductsPage from "./pages/ProductsPage";
+import InventoryPage from "./pages/InventoryPage";
+import SuppliersPage from "./pages/SuppliersPage";
+import ClientsPage from "./pages/ClientsPage";
+import UsersPage from "./pages/UsersPage";
+import RolesPage from "./pages/RolesPage";
+import PermissionsPage from "./pages/PermissionsPage";
+import RecepcionesPage from "./pages/RecepcionesPage";
+import AuditPage from "./pages/AuditPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem("token");
+  return token ? children : <Navigate to="/login" replace />;
+}
 
-  if (!token) {
-    return <Navigate to="/login" />
-  }
-
-  return children
+function PublicRoute({ children }) {
+  const token = localStorage.getItem("token");
+  return token ? <Navigate to="/dashboard" replace /> : children;
 }
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
 
         <Route
           path="/dashboard"
@@ -68,9 +81,56 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/usuarios"
+          element={
+            <ProtectedRoute>
+              <UsersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/roles"
+          element={
+            <ProtectedRoute>
+              <RolesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/permisos"
+          element={
+            <ProtectedRoute>
+              <PermissionsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/recepciones"
+          element={
+            <ProtectedRoute>
+              <RecepcionesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/auditoria"
+          element={
+            <ProtectedRoute>
+              <AuditPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App  
+export default App;
