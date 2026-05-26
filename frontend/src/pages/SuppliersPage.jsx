@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Truck, Search, Plus, Phone, Mail } from "lucide-react";
+import {
+  Truck,
+  Search,
+  Plus,
+  Phone,
+  Mail,
+  X,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 import api from "../api/api";
 
@@ -36,9 +45,23 @@ const sampleSuppliers = [
 function SuppliersPage() {
   const [suppliers, setSuppliers] = useState(sampleSuppliers);
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState(null);
+
+  const [form, setForm] = useState({
+    name: "",
+    contact: "",
+    phone: "",
+    email: "",
+    products: "",
+  });
 
   const filteredSuppliers = suppliers.filter((supplier) =>
-    supplier.name.toLowerCase().includes(search.toLowerCase())
+    `${supplier.name || supplier.nombre || ""} ${
+      supplier.contact || supplier.contacto || ""
+    } ${supplier.email || supplier.correo || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
 
   useEffect(() => {
@@ -57,6 +80,114 @@ function SuppliersPage() {
 
     loadSuppliers();
   }, []);
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      contact: "",
+      phone: "",
+      email: "",
+      products: "",
+    });
+
+    setEditingSupplier(null);
+    setShowModal(false);
+  };
+
+  const handleOpenCreateModal = () => {
+    setEditingSupplier(null);
+    setForm({
+      name: "",
+      contact: "",
+      phone: "",
+      email: "",
+      products: "",
+    });
+    setShowModal(true);
+  };
+
+  const handleEditSupplier = (supplier) => {
+    setEditingSupplier(supplier);
+
+    setForm({
+      name: supplier.name || supplier.nombre || "",
+      contact: supplier.contact || supplier.contacto || "",
+      phone: supplier.phone || supplier.telefono || "",
+      email: supplier.email || supplier.correo || "",
+      products: supplier.products || supplier.productos || "",
+    });
+
+    setShowModal(true);
+  };
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSaveSupplier = async (e) => {
+    e.preventDefault();
+
+    if (editingSupplier) {
+      const updatedSupplier = {
+        ...editingSupplier,
+        name: form.name,
+        contact: form.contact,
+        phone: form.phone,
+        email: form.email,
+        products: form.products,
+        status: editingSupplier.status || "Activo",
+      };
+
+      try {
+        await api.put(`/suppliers/${editingSupplier.id}`, updatedSupplier);
+      } catch (error) {
+        console.log("Proveedor actualizado solo en la vista local.");
+      }
+
+      setSuppliers(
+        suppliers.map((supplier) =>
+          supplier.id === editingSupplier.id ? updatedSupplier : supplier
+        )
+      );
+    } else {
+      const newSupplier = {
+        id: Date.now(),
+        name: form.name,
+        contact: form.contact,
+        phone: form.phone,
+        email: form.email,
+        products: form.products,
+        status: "Activo",
+      };
+
+      try {
+        const response = await api.post("/suppliers", newSupplier);
+        const savedSupplier = response.data?.data || response.data || newSupplier;
+        setSuppliers([savedSupplier, ...suppliers]);
+      } catch (error) {
+        setSuppliers([newSupplier, ...suppliers]);
+      }
+    }
+
+    resetForm();
+  };
+
+  const handleDeleteSupplier = async (id) => {
+    const confirmDelete = confirm("¿Seguro que deseas eliminar este proveedor?");
+
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/suppliers/${id}`);
+    } catch (error) {
+      console.log("Proveedor eliminado solo en la vista local.");
+    }
+
+    setSuppliers(suppliers.filter((supplier) => supplier.id !== id));
+  };
 
   return (
     <AdminLayout
@@ -80,6 +211,7 @@ function SuppliersPage() {
                 size={18}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
               />
+
               <input
                 type="text"
                 placeholder="Buscar proveedor..."
@@ -89,7 +221,10 @@ function SuppliersPage() {
               />
             </div>
 
-            <button className="flex items-center justify-center gap-2 bg-amber-900 text-white px-4 py-2 rounded-xl hover:bg-amber-800">
+            <button
+              onClick={handleOpenCreateModal}
+              className="flex items-center justify-center gap-2 bg-amber-900 text-white px-4 py-2 rounded-xl hover:bg-amber-800"
+            >
               <Plus size={18} />
               Nuevo proveedor
             </button>
@@ -138,10 +273,153 @@ function SuppliersPage() {
                   {supplier.email || supplier.correo}
                 </p>
               </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={() => handleEditSupplier(supplier)}
+                  className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                  title="Editar proveedor"
+                >
+                  <Pencil size={18} />
+                </button>
+
+                <button
+                  onClick={() => handleDeleteSupplier(supplier.id)}
+                  className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                  title="Eliminar proveedor"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </article>
           ))}
+
+          {filteredSuppliers.length === 0 && (
+            <div className="col-span-full rounded-2xl border border-dashed border-stone-300 p-8 text-center text-stone-500">
+              No se encontraron proveedores.
+            </div>
+          )}
         </div>
       </section>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-stone-800">
+                  {editingSupplier ? "Editar proveedor" : "Nuevo proveedor"}
+                </h3>
+                <p className="text-sm text-stone-500">
+                  {editingSupplier
+                    ? "Modifica la información del proveedor seleccionado."
+                    : "Registra un nuevo proveedor en el sistema."}
+                </p>
+              </div>
+
+              <button
+                onClick={resetForm}
+                className="rounded-lg p-2 text-stone-500 hover:bg-stone-100"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSupplier} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Nombre del proveedor
+                </label>
+                <input
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej. Café Selecto MX"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Persona de contacto
+                </label>
+                <input
+                  name="contact"
+                  value={form.contact}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej. María López"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Teléfono
+                </label>
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej. 464 123 4567"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                  placeholder="proveedor@correo.com"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Productos que suministra
+                </label>
+                <textarea
+                  name="products"
+                  value={form.products}
+                  onChange={handleChange}
+                  required
+                  rows="3"
+                  placeholder="Ej. Café, vasos, servilletas..."
+                  className="w-full resize-none rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-stone-300 px-4 py-2 font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="rounded-xl bg-amber-900 px-4 py-2 font-medium text-white hover:bg-amber-800"
+                >
+                  {editingSupplier
+                    ? "Actualizar proveedor"
+                    : "Guardar proveedor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

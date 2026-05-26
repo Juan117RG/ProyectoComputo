@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Boxes, Search, AlertTriangle, Plus } from "lucide-react";
+import {
+  Boxes,
+  Search,
+  AlertTriangle,
+  Plus,
+  X,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 import api from "../api/api";
 
@@ -45,12 +53,26 @@ const sampleInventory = [
 function InventoryPage() {
   const [items, setItems] = useState(sampleInventory);
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  const [form, setForm] = useState({
+    product: "",
+    category: "",
+    stock: "",
+    minStock: "",
+    location: "",
+  });
 
   const filteredItems = items.filter((item) =>
-    item.product.toLowerCase().includes(search.toLowerCase())
+    `${item.product || item.producto || ""} ${item.category || item.categoria || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
 
-  const lowStock = items.filter((item) => item.stock <= item.minStock).length;
+  const lowStock = items.filter(
+    (item) => Number(item.stock) <= Number(item.minStock || item.minimo)
+  ).length;
 
   useEffect(() => {
     const loadInventory = async () => {
@@ -68,6 +90,120 @@ function InventoryPage() {
 
     loadInventory();
   }, []);
+
+  const resetForm = () => {
+    setForm({
+      product: "",
+      category: "",
+      stock: "",
+      minStock: "",
+      location: "",
+    });
+
+    setEditingItem(null);
+    setShowModal(false);
+  };
+
+  const handleOpenCreateModal = () => {
+    setEditingItem(null);
+    setForm({
+      product: "",
+      category: "",
+      stock: "",
+      minStock: "",
+      location: "",
+    });
+    setShowModal(true);
+  };
+
+  const handleEditItem = (item) => {
+    setEditingItem(item);
+
+    setForm({
+      product: item.product || item.producto || "",
+      category: item.category || item.categoria || "",
+      stock: item.stock || "",
+      minStock: item.minStock || item.minimo || "",
+      location: item.location || item.ubicacion || "",
+    });
+
+    setShowModal(true);
+  };
+
+  const handleDeleteItem = async (id) => {
+    const confirmDelete = confirm(
+      "¿Seguro que deseas eliminar este registro de inventario?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/inventory/${id}`);
+    } catch (error) {
+      console.log("Inventario eliminado solo en la vista local.");
+    }
+
+    setItems(items.filter((item) => item.id !== id));
+  };
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const getStatus = (stock, minStock) => {
+    return Number(stock) <= Number(minStock) ? "Stock bajo" : "Disponible";
+  };
+
+  const handleSaveItem = async (e) => {
+    e.preventDefault();
+
+    if (editingItem) {
+      const updatedItem = {
+        ...editingItem,
+        product: form.product,
+        category: form.category,
+        stock: Number(form.stock),
+        minStock: Number(form.minStock),
+        location: form.location,
+        status: getStatus(form.stock, form.minStock),
+      };
+
+      try {
+        await api.put(`/inventory/${editingItem.id}`, updatedItem);
+      } catch (error) {
+        console.log("Inventario actualizado solo en la vista local.");
+      }
+
+      setItems(
+        items.map((item) =>
+          item.id === editingItem.id ? updatedItem : item
+        )
+      );
+    } else {
+      const newItem = {
+        id: Date.now(),
+        product: form.product,
+        category: form.category,
+        stock: Number(form.stock),
+        minStock: Number(form.minStock),
+        location: form.location,
+        status: getStatus(form.stock, form.minStock),
+      };
+
+      try {
+        const response = await api.post("/inventory", newItem);
+        const savedItem = response.data?.data || response.data || newItem;
+        setItems([savedItem, ...items]);
+      } catch (error) {
+        setItems([newItem, ...items]);
+      }
+    }
+
+    resetForm();
+  };
 
   return (
     <AdminLayout
@@ -117,9 +253,12 @@ function InventoryPage() {
               />
             </div>
 
-            <button className="flex items-center justify-center gap-2 bg-amber-900 text-white px-4 py-2 rounded-xl hover:bg-amber-800">
+            <button
+              onClick={handleOpenCreateModal}
+              className="flex items-center justify-center gap-2 bg-amber-900 text-white px-4 py-2 rounded-xl hover:bg-amber-800"
+            >
               <Plus size={18} />
-              Nuevo movimiento
+              Nuevo registro
             </button>
           </div>
         </div>
@@ -134,49 +273,207 @@ function InventoryPage() {
                 <th className="py-3 px-3">Mínimo</th>
                 <th className="py-3 px-3">Ubicación</th>
                 <th className="py-3 px-3">Estado</th>
+                <th className="py-3 px-3 text-right">Acciones</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredItems.map((item) => (
-                <tr key={item.id} className="border-b hover:bg-stone-50">
-                  <td className="py-4 px-3">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-amber-100 text-amber-900 p-2 rounded-xl">
-                        <Boxes size={18} />
+              {filteredItems.map((item) => {
+                const stock = Number(item.stock || 0);
+                const minStock = Number(item.minStock || item.minimo || 0);
+                const isLow = stock <= minStock;
+
+                return (
+                  <tr key={item.id} className="border-b hover:bg-stone-50">
+                    <td className="py-4 px-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-amber-100 text-amber-900 p-2 rounded-xl">
+                          <Boxes size={18} />
+                        </div>
+                        <span className="font-medium text-stone-800">
+                          {item.product || item.producto}
+                        </span>
                       </div>
-                      <span className="font-medium text-stone-800">
-                        {item.product || item.producto}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="py-4 px-3">
-                    {item.category || item.categoria || "Sin categoría"}
-                  </td>
+                    <td className="py-4 px-3">
+                      {item.category || item.categoria || "Sin categoría"}
+                    </td>
 
-                  <td className="py-4 px-3 font-bold">{item.stock}</td>
-                  <td className="py-4 px-3">{item.minStock || item.minimo}</td>
-                  <td className="py-4 px-3">{item.location || item.ubicacion}</td>
+                    <td className="py-4 px-3 font-bold">{stock}</td>
+                    <td className="py-4 px-3">{minStock}</td>
+                    <td className="py-4 px-3">
+                      {item.location || item.ubicacion}
+                    </td>
 
-                  <td className="py-4 px-3">
-                    {item.stock <= item.minStock ? (
-                      <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">
-                        <AlertTriangle size={14} />
-                        Stock bajo
-                      </span>
-                    ) : (
-                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
-                        Disponible
-                      </span>
-                    )}
+                    <td className="py-4 px-3">
+                      {isLow ? (
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">
+                          <AlertTriangle size={14} />
+                          Stock bajo
+                        </span>
+                      ) : (
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
+                          Disponible
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-4 px-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEditItem(item)}
+                          className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                          title="Editar inventario"
+                        >
+                          <Pencil size={18} />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                          title="Eliminar inventario"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {filteredItems.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="py-8 text-center text-stone-500">
+                    No se encontraron registros de inventario.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </section>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-stone-800">
+                  {editingItem ? "Editar inventario" : "Nuevo registro"}
+                </h3>
+                <p className="text-sm text-stone-500">
+                  {editingItem
+                    ? "Modifica el registro de inventario seleccionado."
+                    : "Agrega un nuevo registro al inventario."}
+                </p>
+              </div>
+
+              <button
+                onClick={resetForm}
+                className="rounded-lg p-2 text-stone-500 hover:bg-stone-100"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveItem} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Producto
+                </label>
+                <input
+                  name="product"
+                  value={form.product}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej. Café americano"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Categoría
+                </label>
+                <input
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej. Bebidas"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-stone-700">
+                    Stock actual
+                  </label>
+                  <input
+                    type="number"
+                    name="stock"
+                    value={form.stock}
+                    onChange={handleChange}
+                    required
+                    min="0"
+                    placeholder="Ej. 35"
+                    className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-stone-700">
+                    Stock mínimo
+                  </label>
+                  <input
+                    type="number"
+                    name="minStock"
+                    value={form.minStock}
+                    onChange={handleChange}
+                    required
+                    min="0"
+                    placeholder="Ej. 10"
+                    className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">
+                  Ubicación
+                </label>
+                <input
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej. Almacén"
+                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-stone-300 px-4 py-2 font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="rounded-xl bg-amber-900 px-4 py-2 font-medium text-white hover:bg-amber-800"
+                >
+                  {editingItem ? "Actualizar registro" : "Guardar registro"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
