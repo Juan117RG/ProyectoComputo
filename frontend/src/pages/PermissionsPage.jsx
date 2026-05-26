@@ -2,32 +2,37 @@ import { LockKeyhole } from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 
 const permissions = [
-  { module: "Productos", admin: true, cashier: false, warehouse: true },
+  { module: "Dashboard", admin: true, cashier: true, warehouse: true },
+  { module: "Productos", admin: true, cashier: true, warehouse: true },
   { module: "Inventario", admin: true, cashier: false, warehouse: true },
   { module: "Recepciones", admin: true, cashier: false, warehouse: true },
-  { module: "Clientes", admin: true, cashier: true, warehouse: false },
   { module: "Proveedores", admin: true, cashier: false, warehouse: true },
+  { module: "Clientes", admin: true, cashier: true, warehouse: false },
   { module: "Usuarios", admin: true, cashier: false, warehouse: false },
+  { module: "Roles", admin: true, cashier: false, warehouse: false },
+  { module: "Permisos", admin: true, cashier: false, warehouse: false },
+  { module: "Auditoría", admin: true, cashier: false, warehouse: false },
 ];
 
-function PermissionsPage() {
-  const badge = (value) =>
-    value ? (
-      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
-        Permitido
-      </span>
-    ) : (
-      <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">
-        Denegado
-      </span>
-    );
+function PermissionBadge({ allowed }) {
+  return allowed ? (
+    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
+      Permitido
+    </span>
+  ) : (
+    <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">
+      Denegado
+    </span>
+  );
+}
 
+function PermissionsPage() {
   return (
     <AdminLayout title="Permisos" subtitle="Control de permisos por rol.">
-      <div className="bg-white rounded-2xl shadow p-6">
+      <section className="bg-white rounded-2xl shadow p-6">
         <div className="flex items-center gap-3 mb-5">
           <div className="bg-amber-100 text-amber-900 p-3 rounded-xl">
-            <LockKeyhole size={22} />
+            <LockKeyhole size={24} />
           </div>
 
           <div>
@@ -35,7 +40,7 @@ function PermissionsPage() {
               Matriz de permisos
             </h3>
             <p className="text-sm text-stone-500">
-              Vista general de accesos por módulo.
+              Acceso permitido o denegado según el rol del usuario.
             </p>
           </div>
         </div>
@@ -57,15 +62,21 @@ function PermissionsPage() {
                   <td className="py-4 px-3 font-medium text-stone-800">
                     {item.module}
                   </td>
-                  <td className="py-4 px-3">{badge(item.admin)}</td>
-                  <td className="py-4 px-3">{badge(item.cashier)}</td>
-                  <td className="py-4 px-3">{badge(item.warehouse)}</td>
+                  <td className="py-4 px-3">
+                    <PermissionBadge allowed={item.admin} />
+                  </td>
+                  <td className="py-4 px-3">
+                    <PermissionBadge allowed={item.cashier} />
+                  </td>
+                  <td className="py-4 px-3">
+                    <PermissionBadge allowed={item.warehouse} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </AdminLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Coffee } from "lucide-react";
 import api from "../api/api";
 import fondoCafe from "../assets/UC8A1834.jpg";
 
@@ -7,7 +8,7 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    username: "",
+    usuario: "",
     password: "",
   });
 
@@ -28,7 +29,10 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await api.post("/auth/login", form);
+      const response = await api.post("/auth/login", {
+        usuario: form.usuario,
+        password: form.password,
+      });
 
       const token =
         response.data?.token ||
@@ -37,8 +41,10 @@ function LoginPage() {
 
       const user =
         response.data?.user ||
-        response.data?.data?.user || {
-          name: form.username,
+        response.data?.usuario ||
+        response.data?.data?.user ||
+        response.data?.data?.usuario || {
+          name: form.usuario || "Administrador",
           role: "Administrador",
         };
 
@@ -49,10 +55,11 @@ function LoginPage() {
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      navigate("/admin/dashboard");
+      navigate("/dashboard");
     } catch (err) {
       setError(
         err.response?.data?.message ||
+          err.response?.data?.error ||
           err.message ||
           "No fue posible iniciar sesión"
       );
@@ -65,50 +72,50 @@ function LoginPage() {
     <main
       className="min-h-screen bg-cover bg-center bg-no-repeat"
       style={{
-        backgroundImage: `linear-gradient(rgba(20, 15, 10, 0.35), rgba(20, 15, 10, 0.35)), url(${fondoCafe})`,
+        backgroundImage: `linear-gradient(rgba(20, 15, 10, 0.42), rgba(20, 15, 10, 0.42)), url(${fondoCafe})`,
       }}
     >
-      <div className="flex min-h-screen items-center justify-center px-4 py-10 backdrop-blur-[1px]">
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
         <section className="w-full max-w-md rounded-3xl bg-white/90 p-8 shadow-2xl backdrop-blur-md">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#a94700] text-2xl text-white">
-              ☕
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-900 text-white">
+              <Coffee size={30} />
             </div>
 
-            <h1 className="text-3xl font-bold text-[#2b1a10]">
+            <h1 className="text-3xl font-bold text-stone-900">
               Café Campus
             </h1>
 
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-stone-500">
               Panel administrativo
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
+              <label className="mb-2 block text-sm font-semibold text-stone-700">
                 Usuario
               </label>
 
               <input
                 type="text"
-                name="username"
-                value={form.username}
+                name="usuario"
+                value={form.usuario}
                 onChange={handleChange}
                 placeholder="Ingresa tu usuario"
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#a94700] focus:ring-2 focus:ring-orange-200"
+                className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-amber-900 focus:ring-2 focus:ring-amber-900/20"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
+              <label className="mb-2 block text-sm font-semibold text-stone-700">
                 Contraseña
               </label>
 
@@ -119,16 +126,16 @@ function LoginPage() {
                   value={form.password}
                   onChange={handleChange}
                   placeholder="Ingresa tu contraseña"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 pr-12 text-sm outline-none transition focus:border-[#a94700] focus:ring-2 focus:ring-orange-200"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 pr-12 text-sm outline-none transition focus:border-amber-900 focus:ring-2 focus:ring-amber-900/20"
                   required
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-800"
                 >
-                  {showPassword ? "🙈" : "👁️"}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
@@ -136,13 +143,13 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[#a94700] px-4 py-3 font-semibold text-white transition hover:bg-[#8f3d00] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-amber-900 px-4 py-3 font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Ingresando..." : "Entrar al sistema"}
             </button>
           </form>
 
-          <div className="mt-6 rounded-xl border border-orange-200 bg-orange-50/80 px-4 py-3 text-sm text-gray-700">
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-stone-700">
             <p className="font-semibold">Credenciales de prueba:</p>
             <p>Usuario: proyecto</p>
             <p>Contraseña: Hello2U"</p>
