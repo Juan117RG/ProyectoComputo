@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Truck, Search, Plus, Mail, Phone, X, Pencil, Trash2 } from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 import api from "../api/api";
-import { getItems, getErrorMessage } from "../utils/apiResponse";
+import { getItems, getErrorMessage } from "../utils/apiResponse.js";
 import { hasPermission } from "../utils/auth";
 
 const emptyForm = {

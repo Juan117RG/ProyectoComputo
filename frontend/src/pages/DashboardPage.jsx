@@ -1,112 +1,127 @@
-import { Package, Users, Truck, Boxes, AlertTriangle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Package, Users, Truck, Boxes, AlertTriangle, ClipboardList, History } from 'lucide-react'
 import AdminLayout from '../components/layout/AdminLayout'
+import api from '../api/api'
+
+const emptySummary = {
+  totals: {
+    products: 0,
+    activeProducts: 0,
+    clients: 0,
+    activeClients: 0,
+    suppliers: 0,
+    activeSuppliers: 0,
+    users: 0,
+    activeUsers: 0,
+    recepciones: 0,
+  },
+  lowStockCount: 0,
+  lowStockProducts: [],
+  recepcionesRecientes: [],
+  recentInventoryMovements: [],
+  recentAudit: [],
+}
+
+function formatDate(value) {
+  if (!value) return 'Sin fecha'
+  return new Date(value).toLocaleString('es-MX')
+}
 
 function DashboardPage() {
+  const [summary, setSummary] = useState(emptySummary)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const loadDashboard = async (silent = false) => {
+      try {
+        if (!silent) setLoading(true)
+        const response = await api.get('/dashboard/summary')
+        setSummary({ ...emptySummary, ...response.data })
+      } catch (err) {
+        setError(err.response?.data?.message || 'No se pudo cargar el dashboard.')
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    }
+
+    loadDashboard()
+    const interval = setInterval(() => loadDashboard(true), 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const cards = [
+    { title: 'Productos', value: summary.totals.products, sub: `${summary.totals.activeProducts} activos`, icon: Package },
+    { title: 'Inventario bajo', value: summary.lowStockCount, sub: 'Productos en mínimo', icon: AlertTriangle },
+    { title: 'Proveedores', value: summary.totals.suppliers, sub: `${summary.totals.activeSuppliers} activos`, icon: Truck },
+    { title: 'Clientes', value: summary.totals.clients, sub: `${summary.totals.activeClients} activos`, icon: Users },
+    { title: 'Usuarios', value: summary.totals.users, sub: `${summary.totals.activeUsers} activos`, icon: Boxes },
+    { title: 'Recepciones', value: summary.totals.recepciones, sub: 'Registradas', icon: ClipboardList },
+  ]
+
   return (
-    <AdminLayout
-      title="Dashboard"
-      subtitle="Bienvenido, aquí tienes el resumen de la cafetería."
-    >
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard
-          title="Productos"
-          value="24"
-          description="Registrados"
-          icon={<Package size={28} />}
-        />
-        <StatCard
-          title="Inventario"
-          value="156"
-          description="Unidades disponibles"
-          icon={<Boxes size={28} />}
-        />
-        <StatCard
-          title="Proveedores"
-          value="8"
-          description="Activos"
-          icon={<Truck size={28} />}
-        />
-        <StatCard
-          title="Clientes"
-          value="42"
-          description="Registrados"
-          icon={<Users size={28} />}
-        />
-      </div>
+    <AdminLayout title="Dashboard" subtitle="Resumen real del sistema conectado al backend.">
+      {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6">
-          <h3 className="text-xl font-bold text-stone-800 mb-4">
-            Productos destacados
-          </h3>
+      {loading ? (
+        <section className="rounded-2xl bg-white p-8 text-center shadow text-stone-500">Cargando dashboard...</section>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map((card) => {
+              const Icon = card.icon
+              return (
+                <article key={card.title} className="rounded-2xl bg-white p-5 shadow">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-stone-500">{card.title}</p>
+                      <p className="mt-2 text-3xl font-bold text-stone-900">{card.value}</p>
+                      <p className="mt-1 text-sm text-stone-500">{card.sub}</p>
+                    </div>
+                    <div className="rounded-2xl bg-amber-100 p-3 text-amber-900"><Icon size={26} /></div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
 
-          <div className="space-y-4">
-            <ProductRow name="Café americano" stock="35 unidades" price="$28.00" />
-            <ProductRow name="Capuchino" stock="22 unidades" price="$38.00" />
-            <ProductRow name="Croissant" stock="15 unidades" price="$32.00" />
-            <ProductRow name="Sandwich universitario" stock="18 unidades" price="$45.00" />
+          <div className="grid gap-6 xl:grid-cols-2">
+            <section className="rounded-2xl bg-white p-6 shadow">
+              <div className="mb-4 flex items-center gap-3">
+                <AlertTriangle className="text-amber-900" />
+                <h3 className="text-xl font-bold text-stone-800">Productos con stock bajo</h3>
+              </div>
+              <div className="space-y-3">
+                {summary.lowStockProducts.length === 0 && <p className="text-stone-500">No hay productos con stock bajo.</p>}
+                {summary.lowStockProducts.map((product) => (
+                  <div key={product.id} className="rounded-xl border border-stone-200 p-4">
+                    <p className="font-semibold text-stone-800">{product.nombre}</p>
+                    <p className="text-sm text-stone-500">SKU: {product.sku} · Stock: {product.stock} · Mínimo: {product.stockMinimo}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-2xl bg-white p-6 shadow">
+              <div className="mb-4 flex items-center gap-3">
+                <History className="text-amber-900" />
+                <h3 className="text-xl font-bold text-stone-800">Actividad reciente</h3>
+              </div>
+              <div className="space-y-3">
+                {summary.recentAudit.length === 0 && <p className="text-stone-500">No hay actividad reciente.</p>}
+                {summary.recentAudit.map((log) => (
+                  <div key={log.id} className="rounded-xl border border-stone-200 p-4">
+                    <p className="font-semibold text-stone-800">{log.action} · {log.resource}</p>
+                    <p className="text-sm text-stone-500">Usuario: {log.usuario || 'Sistema'} · {formatDate(log.createdAt)}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-red-100 text-red-700 p-3 rounded-xl">
-              <AlertTriangle size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-stone-800">Alertas</h3>
-              <p className="text-sm text-stone-500">Stock bajo</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <AlertItem text="Leche deslactosada baja en inventario" />
-            <AlertItem text="Vasos medianos por agotarse" />
-            <AlertItem text="Pan dulce requiere reposición" />
-            <AlertItem text="Servilletas con existencia mínima" />
-          </div>
-        </div>
-      </div>
+      )}
     </AdminLayout>
   )
 }
 
-function StatCard({ title, value, description, icon }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm p-6">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <p className="text-stone-500 text-sm">{title}</p>
-          <h3 className="text-3xl font-bold text-stone-800">{value}</h3>
-        </div>
-        <div className="bg-amber-100 text-amber-800 p-3 rounded-xl">
-          {icon}
-        </div>
-      </div>
-      <p className="text-stone-500 text-sm">{description}</p>
-    </div>
-  )
-}
-
-function ProductRow({ name, stock, price }) {
-  return (
-    <div className="flex justify-between items-center border border-stone-200 rounded-xl px-4 py-3">
-      <div>
-        <p className="font-semibold text-stone-800">{name}</p>
-        <p className="text-sm text-stone-500">{stock}</p>
-      </div>
-      <p className="font-bold text-amber-800">{price}</p>
-    </div>
-  )
-}
-
-function AlertItem({ text }) {
-  return (
-    <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 text-sm">
-      {text}
-    </div>
-  )
-}
-
 export default DashboardPage
-

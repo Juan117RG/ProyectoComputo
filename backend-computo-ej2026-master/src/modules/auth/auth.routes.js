@@ -2,7 +2,6 @@ import { Router } from 'express'
 import { authController } from './auth.controller.js'
 import { validate } from '../../middlewares/validate.js'
 import { authenticate } from '../../middlewares/auth.js'
-import { requirePermissions } from '../../middlewares/requirePermissions.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { loginSchema } from './auth.schema.js'
 
@@ -17,7 +16,6 @@ router.post(
 router.get(
   '/me',
   authenticate,
-  requirePermissions(['auth:me']),
   asyncHandler(authController.me.bind(authController))
 )
 

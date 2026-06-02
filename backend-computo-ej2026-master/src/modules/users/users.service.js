@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { usersRepository } from './users.repository.js'
 import { logAuditEvent } from '../../utils/audit.js'
+import { rolesRepository } from '../roles/roles.repository.js'
 
 export class UsersService {
   async list(query) {
@@ -84,6 +85,7 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(payload.password, 10)
+    const selectedRole = payload.roleId ? await rolesRepository.findById(payload.roleId) : null
 
     const data = {
       nombre: payload.nombre,
@@ -91,9 +93,9 @@ export class UsersService {
       email: payload.email,
       usuario: payload.usuario,
       passwordHash,
-      role: payload.role || null,
+      role: selectedRole?.nombre || payload.role || null,
       roleId: payload.roleId || null,
-      permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+      permissions: selectedRole ? (Array.isArray(selectedRole.permissions) ? selectedRole.permissions : []) : (Array.isArray(payload.permissions) ? payload.permissions : []),
       activo: payload.activo ?? true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -148,6 +150,8 @@ export class UsersService {
       }
     }
 
+    const selectedRole = payload.roleId !== undefined && payload.roleId ? await rolesRepository.findById(payload.roleId) : null
+
     const data = {
       updatedAt: new Date().toISOString()
     }
@@ -157,8 +161,13 @@ export class UsersService {
     if (payload.email !== undefined) data.email = payload.email
     if (payload.usuario !== undefined) data.usuario = payload.usuario
     if (payload.role !== undefined) data.role = payload.role
-    if (payload.roleId !== undefined) data.roleId = payload.roleId
-    if (payload.permissions !== undefined) data.permissions = payload.permissions
+    if (payload.roleId !== undefined) {
+      data.roleId = payload.roleId
+      data.role = selectedRole?.nombre || payload.role || null
+      data.permissions = selectedRole ? (Array.isArray(selectedRole.permissions) ? selectedRole.permissions : []) : []
+    } else if (payload.permissions !== undefined) {
+      data.permissions = payload.permissions
+    }
     if (payload.activo !== undefined) data.activo = payload.activo
 
     if (payload.password) {

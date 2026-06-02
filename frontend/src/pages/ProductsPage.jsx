@@ -1,248 +1,153 @@
 import { useEffect, useState } from "react";
-import {
-  Package,
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  X,
-  ImagePlus,
-} from "lucide-react";
+import { Package, Search, Plus, X, Pencil, Trash2 } from "lucide-react";
 import AdminLayout from "../components/layout/AdminLayout";
 import api from "../api/api";
+import { getErrorMessage, getItems } from "../utils/apiResponse";
+import { hasPermission } from "../utils/auth";
 
-const sampleProducts = [
-  {
-    id: 1,
-    name: "Café americano",
-    category: "Bebidas calientes",
-    price: 28,
-    stock: 35,
-    status: "Activo",
-    image:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: 2,
-    name: "Capuchino",
-    category: "Bebidas calientes",
-    price: 38,
-    stock: 22,
-    status: "Activo",
-    image:
-      "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: 3,
-    name: "Croissant",
-    category: "Panadería",
-    price: 32,
-    stock: 15,
-    status: "Activo",
-    image:
-      "https://images.unsplash.com/photo-1620146344904-097a0002d797?auto=format&fit=crop&w=500&q=80",
-  },
-  {
-    id: 4,
-    name: "Sandwich universitario",
-    category: "Alimentos",
-    price: 45,
-    stock: 18,
-    status: "Activo",
-    image:
-      "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=500&q=80",
-  },
-];
+const emptyForm = {
+  sku: "",
+  nombre: "",
+  categoria: "",
+  precioVenta: "0",
+  stock: "0",
+  stockMinimo: "0",
+  activo: true,
+};
 
 function ProductsPage() {
-  const [products, setProducts] = useState(sampleProducts);
+  const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [form, setForm] = useState(emptyForm);
 
-  const [form, setForm] = useState({
-    name: "",
-    category: "",
-    price: "",
-    stock: "",
-    image: "",
-  });
+  const canCreate = hasPermission("products:create");
+  const canUpdate = hasPermission("products:update");
+  const canDelete = hasPermission("products:delete");
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get("/products", { params: { limit: 100 } });
+      setProducts(getItems(response));
+      setError("");
+    } catch (err) {
+      setError(getErrorMessage(err, "No se pudieron cargar los productos."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
 
   const filteredProducts = products.filter((product) =>
-    (product.name || product.nombre || "")
+    `${product.sku || ""} ${product.nombre || ""} ${product.categoria || ""}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
 
-  useEffect(() => {
-    const loadProducts = async () => {
-      setLoading(true);
-
-      try {
-        const response = await api.get("/products");
-        const data = response.data?.data || response.data;
-
-        if (Array.isArray(data) && data.length > 0) {
-          setProducts(data);
-        }
-      } catch (error) {
-        console.log("Usando productos de ejemplo.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, []);
-
   const resetForm = () => {
-    setForm({
-      name: "",
-      category: "",
-      price: "",
-      stock: "",
-      image: "",
-    });
-
+    setForm(emptyForm);
     setEditingProduct(null);
     setShowModal(false);
   };
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    const imageUrl = URL.createObjectURL(file);
-
-    setForm({
-      ...form,
-      image: imageUrl,
-    });
-  };
-
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
-    setForm({
-      name: "",
-      category: "",
-      price: "",
-      stock: "",
-      image: "",
-    });
+    setForm(emptyForm);
     setShowModal(true);
   };
 
   const handleEditProduct = (product) => {
     setEditingProduct(product);
-
     setForm({
-      name: product.name || product.nombre || "",
-      category: product.category || product.categoria || "",
-      price: product.price || product.precio || "",
-      stock: product.stock || product.existencia || "",
-      image: product.image || product.imagen || "",
+      sku: product.sku || "",
+      nombre: product.nombre || "",
+      categoria: product.categoria || "",
+      precioVenta: String(product.precioVenta ?? 0),
+      stock: String(product.stock ?? 0),
+      stockMinimo: String(product.stockMinimo ?? 0),
+      activo: product.activo ?? true,
     });
-
     setShowModal(true);
   };
 
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const buildPayload = () => ({
+    sku: form.sku.trim(),
+    nombre: form.nombre.trim(),
+    categoria: form.categoria.trim(),
+    unidad: "pieza",
+    descripcion: "",
+    marca: "",
+    modelo: "",
+    precioCompra: 0,
+    precioVenta: Number(form.precioVenta || 0),
+    stock: Number(form.stock || 0),
+    stockMinimo: Number(form.stockMinimo || 0),
+    activo: form.activo,
+  });
+
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+    setError("");
+    setSaving(true);
 
-    if (editingProduct) {
-      const updatedProduct = {
-        ...editingProduct,
-        name: form.name,
-        category: form.category,
-        price: Number(form.price),
-        stock: Number(form.stock),
-        image: form.image,
-        status: editingProduct.status || "Activo",
-      };
-
-      try {
-        await api.put(`/products/${editingProduct.id}`, updatedProduct);
-      } catch (error) {
-        console.log("Producto actualizado solo en la vista local.");
+    try {
+      const payload = buildPayload();
+      if (editingProduct) {
+        await api.patch(`/products/${editingProduct.id}`, payload);
+      } else {
+        await api.post("/products", payload);
       }
-
-      setProducts(
-        products.map((product) =>
-          product.id === editingProduct.id ? updatedProduct : product
-        )
-      );
-    } else {
-      const newProduct = {
-        id: Date.now(),
-        name: form.name,
-        category: form.category,
-        price: Number(form.price),
-        stock: Number(form.stock),
-        status: "Activo",
-        image: form.image,
-      };
-
-      try {
-        const response = await api.post("/products", newProduct);
-        const savedProduct = response.data?.data || response.data || newProduct;
-
-        setProducts([savedProduct, ...products]);
-      } catch (error) {
-        setProducts([newProduct, ...products]);
-      }
+      resetForm();
+      await loadProducts();
+    } catch (err) {
+      setError(getErrorMessage(err, "No se pudo guardar el producto."));
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
   };
 
   const handleDeleteProduct = async (id) => {
-    const confirmDelete = confirm("¿Seguro que deseas eliminar este producto?");
-
-    if (!confirmDelete) return;
+    if (!confirm("¿Seguro que deseas eliminar este producto?")) return;
 
     try {
       await api.delete(`/products/${id}`);
-    } catch (error) {
-      console.log("Producto eliminado solo en la vista local.");
+      await loadProducts();
+    } catch (err) {
+      setError(getErrorMessage(err, "No se pudo eliminar el producto."));
     }
-
-    setProducts(products.filter((product) => product.id !== id));
   };
 
   return (
-    <AdminLayout
-      title="Productos"
-      subtitle="Gestión del catálogo de productos de la cafetería."
-    >
+    <AdminLayout title="Productos" subtitle="Gestión real de productos conectada al backend.">
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <section className="bg-white rounded-2xl shadow p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-5">
           <div>
-            <h3 className="text-xl font-bold text-stone-800">
-              Productos registrados
-            </h3>
-            <p className="text-sm text-stone-500">
-              {loading
-                ? "Cargando productos..."
-                : `${filteredProducts.length} producto(s) encontrados`}
-            </p>
+            <h3 className="text-xl font-bold text-stone-800">Productos registrados</h3>
+            <p className="text-sm text-stone-500">{filteredProducts.length} producto(s) encontrados</p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-              />
-
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 type="text"
                 placeholder="Buscar producto..."
@@ -251,231 +156,100 @@ function ProductsPage() {
                 className="w-full sm:w-72 rounded-xl border border-stone-300 pl-10 pr-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
               />
             </div>
-
-            <button
-              onClick={handleOpenCreateModal}
-              className="flex items-center justify-center gap-2 bg-amber-900 text-white px-4 py-2 rounded-xl hover:bg-amber-800"
-            >
-              <Plus size={18} />
-              Nuevo producto
-            </button>
+            {canCreate && (
+              <button
+                onClick={handleOpenCreateModal}
+                className="flex items-center justify-center gap-2 bg-amber-900 text-white px-4 py-2 rounded-xl hover:bg-amber-800"
+              >
+                <Plus size={18} /> Nuevo producto
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <article
-              key={product.id}
-              className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:shadow-md"
-            >
-              <div className="h-40 bg-stone-100">
-                {product.image || product.imagen ? (
-                  <img
-                    src={product.image || product.imagen}
-                    alt={product.name || product.nombre}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-stone-400">
-                    <Package size={40} />
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="font-bold text-stone-800">
-                      {product.name || product.nombre}
-                    </h4>
-                    <p className="text-sm text-stone-500">
-                      {product.category || product.categoria || "Sin categoría"}
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                    {product.status || "Activo"}
-                  </span>
-                </div>
-
-                <div className="mb-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-stone-50 p-3">
-                    <p className="text-xs text-stone-500">Precio</p>
-                    <p className="font-bold text-amber-900">
-                      ${product.price || product.precio || 0}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-stone-50 p-3">
-                    <p className="text-xs text-stone-500">Stock</p>
-                    <p className="font-bold text-stone-800">
-                      {product.stock || product.existencia || 0}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => handleEditProduct(product)}
-                    className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
-                    title="Editar producto"
-                  >
-                    <Pencil size={18} />
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteProduct(product.id)}
-                    className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                    title="Eliminar producto"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-
-          {filteredProducts.length === 0 && (
-            <div className="col-span-full rounded-2xl border border-dashed border-stone-300 p-8 text-center text-stone-500">
-              No se encontraron productos.
-            </div>
-          )}
-        </div>
+        {loading ? (
+          <p className="text-center text-stone-500 py-8">Cargando productos...</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b text-stone-500">
+                  <th className="py-3 px-3">Producto</th>
+                  <th className="py-3 px-3">Categoría</th>
+                  <th className="py-3 px-3">Precio</th>
+                  <th className="py-3 px-3">Stock</th>
+                  <th className="py-3 px-3">Estado</th>
+                  <th className="py-3 px-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className="border-b hover:bg-stone-50">
+                    <td className="py-4 px-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-amber-100 text-amber-900 p-2 rounded-xl"><Package size={18} /></div>
+                        <div>
+                          <p className="font-medium text-stone-800">{product.nombre}</p>
+                          <p className="text-sm text-stone-500">SKU: {product.sku}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-3">{product.categoria || "Sin categoría"}</td>
+                    <td className="py-4 px-3">${Number(product.precioVenta || 0).toFixed(2)}</td>
+                    <td className="py-4 px-3">
+                      <span className={Number(product.stock) <= Number(product.stockMinimo) ? "text-red-600 font-semibold" : "text-stone-700"}>
+                        {product.stock}
+                      </span>
+                      <span className="text-stone-400"> / mín. {product.stockMinimo}</span>
+                    </td>
+                    <td className="py-4 px-3">
+                      <span className={product.activo ? "bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm" : "bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-sm"}>
+                        {product.activo ? "Activo" : "Inactivo"}
+                      </span>
+                    </td>
+                    <td className="py-4 px-3">
+                      <div className="flex justify-end gap-2">
+                        {canUpdate && <button onClick={() => handleEditProduct(product)} className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"><Pencil size={17} /></button>}
+                        {canDelete && <button onClick={() => handleDeleteProduct(product.id)} className="rounded-lg p-2 text-red-600 hover:bg-red-50"><Trash2 size={17} /></button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredProducts.length === 0 && <p className="text-center text-stone-500 py-8">No se encontraron productos.</p>}
+          </div>
+        )}
       </section>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-6">
+            <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="text-xl font-bold text-stone-800">
-                  {editingProduct ? "Editar producto" : "Nuevo producto"}
-                </h3>
-                <p className="text-sm text-stone-500">
-                  {editingProduct
-                    ? "Modifica la información del producto seleccionado."
-                    : "Agrega un producto al catálogo."}
-                </p>
+                <h3 className="text-xl font-bold text-stone-800">{editingProduct ? "Editar producto" : "Nuevo producto"}</h3>
+                <p className="text-sm text-stone-500">Solo llena los datos básicos del producto.</p>
               </div>
-
-              <button
-                onClick={resetForm}
-                className="rounded-lg p-2 text-stone-500 hover:bg-stone-100"
-              >
-                <X size={22} />
-              </button>
+              <button onClick={resetForm} className="text-stone-500 hover:text-stone-900"><X /></button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-stone-700">
-                  Foto del producto
-                </label>
+            <form onSubmit={handleSaveProduct} className="grid gap-4 md:grid-cols-2">
+              <input name="sku" value={form.sku} onChange={handleChange} placeholder="SKU" className="rounded-xl border px-4 py-2" required />
+              <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre del producto" className="rounded-xl border px-4 py-2" required />
+              <input name="categoria" value={form.categoria} onChange={handleChange} placeholder="Categoría" className="rounded-xl border px-4 py-2" />
+              <input type="number" min="0" step="0.01" name="precioVenta" value={form.precioVenta} onChange={handleChange} placeholder="Precio venta" className="rounded-xl border px-4 py-2" />
+              <input type="number" min="0" name="stock" value={form.stock} onChange={handleChange} placeholder="Stock inicial" className="rounded-xl border px-4 py-2" />
+              <input type="number" min="0" name="stockMinimo" value={form.stockMinimo} onChange={handleChange} placeholder="Stock mínimo" className="rounded-xl border px-4 py-2" />
 
-                <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 p-5 text-center hover:bg-stone-100">
-                  {form.image ? (
-                    <img
-                      src={form.image}
-                      alt="Vista previa"
-                      className="h-40 w-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <>
-                      <ImagePlus size={34} className="mb-2 text-amber-900" />
-                      <span className="text-sm font-medium text-stone-700">
-                        Seleccionar imagen
-                      </span>
-                      <span className="text-xs text-stone-500">
-                        JPG, PNG o WEBP
-                      </span>
-                    </>
-                  )}
+              <label className="md:col-span-2 flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="activo" checked={form.activo} onChange={handleChange} />
+                Activo
+              </label>
 
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-stone-700">
-                  Nombre del producto
-                </label>
-                <input
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  required
-                  placeholder="Ej. Café latte"
-                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-stone-700">
-                  Categoría
-                </label>
-                <input
-                  name="category"
-                  value={form.category}
-                  onChange={handleChange}
-                  required
-                  placeholder="Ej. Bebidas calientes"
-                  className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-stone-700">
-                    Precio
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={form.price}
-                    onChange={handleChange}
-                    required
-                    min="0"
-                    placeholder="Ej. 35"
-                    className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-stone-700">
-                    Stock
-                  </label>
-                  <input
-                    type="number"
-                    name="stock"
-                    value={form.stock}
-                    onChange={handleChange}
-                    required
-                    min="0"
-                    placeholder="Ej. 20"
-                    className="w-full rounded-xl border border-stone-300 px-4 py-2 outline-none focus:ring-2 focus:ring-amber-800/30"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-xl border border-stone-300 px-4 py-2 font-medium text-stone-700 hover:bg-stone-50"
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  type="submit"
-                  className="rounded-xl bg-amber-900 px-4 py-2 font-medium text-white hover:bg-amber-800"
-                >
-                  {editingProduct ? "Actualizar producto" : "Guardar producto"}
+              <div className="md:col-span-2 flex justify-end gap-3">
+                <button type="button" onClick={resetForm} className="rounded-xl border px-4 py-2">Cancelar</button>
+                <button disabled={saving} type="submit" className="rounded-xl bg-amber-900 text-white px-4 py-2 hover:bg-amber-800 disabled:opacity-60">
+                  {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
             </form>
@@ -486,4 +260,4 @@ function ProductsPage() {
   );
 }
 
-export default ProductsPage; 
+export default ProductsPage;

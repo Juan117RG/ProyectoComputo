@@ -1,8 +1,38 @@
 import bcrypt from 'bcryptjs'
 import { signAccessToken } from '../../config/jwt.js'
 import { authRepository } from './auth.repository.js'
+import { rolesRepository } from '../roles/roles.repository.js'
+
+function unique(list = []) {
+  return [...new Set(list.filter(Boolean))]
+}
+
+function isAdminLike(user = {}, role = {}) {
+  return String(user.usuario || '').toLowerCase() === 'proyecto' ||
+    String(user.role || '').toLowerCase() === 'administrador' ||
+    String(user.role || '').toLowerCase() === 'admin' ||
+    String(role.nombre || '').toLowerCase() === 'administrador' ||
+    String(role.nombre || '').toLowerCase() === 'admin'
+}
 
 export class AuthService {
+  async hydrateUser(user) {
+    let role = null
+    if (user?.roleId) {
+      role = await rolesRepository.findById(user.roleId)
+    }
+
+    const rolePermissions = Array.isArray(role?.permissions) ? role.permissions : []
+    const userPermissions = Array.isArray(user?.permissions) ? user.permissions : []
+
+    return {
+      ...user,
+      role: role?.nombre || user?.role || null,
+      permissions: unique([...rolePermissions, ...userPermissions]),
+      isAdmin: isAdminLike(user, role)
+    }
+  }
+
   async login(payload) {
     const { usuario, password } = payload
 
@@ -36,17 +66,19 @@ export class AuthService {
       throw error
     }
 
+    const hydratedUser = await this.hydrateUser(user)
+
     const token = signAccessToken({
-      sub: user.id,
-      usuario: user.usuario,
-      role: user.role || null,
-      roleId: user.roleId || null,
-      permissions: Array.isArray(user.permissions) ? user.permissions : []
+      sub: hydratedUser.id,
+      usuario: hydratedUser.usuario,
+      role: hydratedUser.role || null,
+      roleId: hydratedUser.roleId || null,
+      permissions: hydratedUser.permissions || []
     })
 
     return {
       token,
-      user: this.sanitizeUser(user)
+      user: this.sanitizeUser(hydratedUser)
     }
   }
 
@@ -65,7 +97,8 @@ export class AuthService {
       throw error
     }
 
-    return this.sanitizeUser(user)
+    const hydratedUser = await this.hydrateUser(user)
+    return this.sanitizeUser(hydratedUser)
   }
 
   sanitizeUser(user) {
@@ -78,6 +111,7 @@ export class AuthService {
       role: user.role || null,
       roleId: user.roleId || null,
       permissions: Array.isArray(user.permissions) ? user.permissions : [],
+      isAdmin: user.isAdmin === true,
       activo: user.activo ?? true
     }
   }
